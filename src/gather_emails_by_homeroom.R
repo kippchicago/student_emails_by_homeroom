@@ -1,13 +1,10 @@
 
-
 # SET-UP ------------------------------------------------------------------
 library(readr)
 library(devtools)
-library(tidyverse)
+library(tabbryverse)
 library(purrr)
-
-# github version of package has function we need, CRAN version does not
-install_github("tidyverse/googlesheets4", force = TRUE)
+library(openxlsx)
 
 # Upload file
 student_export_emails <- read_csv(here::here("data", "student_export_emails.csv"), 
@@ -23,16 +20,24 @@ student_export_emails <- read_csv(here::here("data", "student_export_emails.csv"
   trim_ws = TRUE
   ) %>%
   rename("email" = "U_LD_Account_Management.Student_Email") %>%
-  mutate(home_room = str_to_lower(home_room))
+  mutate(home_room = str_to_lower(home_room)) %>%
+  mutate_if(is.character, str_trim)
+
+source(here::here("data", "01-manual_tables.R"))
+
+student_emails_complete <- 
+  student_export_emails %>%
+  left_join(cps_school_rcdts_ids, 
+            by = c("SchoolID" = "schoolid"))
 
 
 # FUNCTIONS ---------------------------------------------------------------
 
 # creates csv for each homeroom (by school) and saves it to the output folder. 
-homeroom_sort <- function(id, dataset) {
+homeroom_sort <- function(abbrev, dataset) {
   single_school <- 
     dataset %>%
-    filter(SchoolID == id)
+    filter(abbr == abbrev)
   
   single_school_homeroom <- 
     unique(single_school$home_room)
@@ -41,19 +46,23 @@ homeroom_sort <- function(id, dataset) {
     dataset <- 
       single_school %>% 
       filter(home_room == homeroom)
-    file_name = paste(id, homeroom, ".csv")
+    file_name = paste(abbrev, homeroom, ".xlsx")
     
-    write.csv(dataset, here::here("output", file_name))
+    write.xlsx(dataset, 
+              here::here("output", file_name), 
+              row.names = FALSE
+              )
   }
 }
 
+# Lists -------------------------------------------------------------------
+
+schoolabbrs <- unique(student_emails_complete$abbr)
 
 # Create csv file for each schools homeroom -------------------------------
 
-schoolids <- unique(student_export_emails$SchoolID)
-
-for (schoolid in schoolids) {
-  homeroom_sort(schoolid, student_export_emails)
+for (id in schoolabbrs) {
+  homeroom_sort(id, student_emails_complete)
 }
 
 
