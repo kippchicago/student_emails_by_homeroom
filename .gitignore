@@ -4,6 +4,4 @@
 .Ruserdata
 *.csv
 *.xls
-data
-/data
 student_export_emails.csv
